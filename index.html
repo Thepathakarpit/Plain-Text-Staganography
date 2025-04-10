@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plain Text Steganography</title>
+    <style>
+        :root {
+            --primary: #4a6ee0;
+            --secondary: #6f42c1;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --success: #28a745;
+            --danger: #dc3545;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--dark);
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: normal;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f1f1f1;
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;
+            margin-right: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .content {
+            display: none;
+        }
+
+        .content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--dark);
+            font-weight: bold;
+        }
+
+        textarea, input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background-color: var(--secondary);
+        }
+
+        .result {
+            margin-top: 20px;
+            background-color: var(--light);
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 5px solid var(--primary);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: var(--dark);
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Plain Text Steganography</h1>
+        <h2 class="subtitle">Hide secret messages within plain text using invisible characters</h2>
+        
+        <div class="tabs">
+            <div class="tab active" id="hideTab">Hide Message</div>
+            <div class="tab" id="revealTab">Reveal Message</div>
+        </div>
+        
+        <div class="content active" id="hideContent">
+            <div class="form-group">
+                <label for="secretMessage">Secret Message:</label>
+                <textarea id="secretMessage" placeholder="Enter the secret message you want to hide..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="coverText">Cover Text:</label>
+                <textarea id="coverText" placeholder="Enter the visible text that will contain your hidden message..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password (optional):</label>
+                <input type="password" id="password" placeholder="Enter a password to encrypt your message...">
+            </div>
+            
+            <button class="btn" id="hideBtn">Hide Message</button>
+            
+            <div class="result hidden" id="hideResult">
+                <label>Steganographic Text (copy this):</label>
+                <textarea id="resultText" readonly></textarea>
+                <button class="btn" id="copyBtn" style="margin-top: 10px;">Copy to Clipboard</button>
+            </div>
+        </div>
+        
+        <div class="content" id="revealContent">
+            <div class="form-group">
+                <label for="stegoText">Steganographic Text:</label>
+                <textarea id="stegoText" placeholder="Paste the text that contains a hidden message..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="revealPassword">Password (if required):</label>
+                <input type="password" id="revealPassword" placeholder="Enter the password to decrypt the message...">
+            </div>
+            
+            <button class="btn" id="revealBtn">Reveal Message</button>
+            
+            <div class="result hidden" id="revealResult">
+                <label>Hidden Message:</label>
+                <textarea id="hiddenMessage" readonly></textarea>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>StegCloak uses zero-width characters to hide messages in plain text.</p>
+        </div>
+    </div>
+    
+    <script>
+        const StegCloak = (function() {
+            const util = {
+                toBuffer: (data) => Buffer.from(data),
+                byarr: (x) => Uint8Array.from(x),
+                compliment: (arr) => Uint8Array.from(Array.from(arr).map(x => ~x)),
+                nTobin: (x) => x.toString(2),
+                zeroPad: (length, num) => {
+                    let zero = "";
+                    for (let i = 0; i < length; i++) {
+                        zero += "0";
+                    }
+                    return zero.slice(String(num).length) + num;
+                },
+                byteToBin: (arr) => {
+                    return Array.from(arr)
+                        .map(x => x.toString(2))
+                        .map(x => {
+                            let zero = "";
+                            for (let i = 0; i < 8; i++) {
+                                zero += "0";
+                            }
+                            return zero.slice(x.length) + x;
+                        })
+                        .join("");
+                },
+                binToByte: (str) => {
+                    const arr = [];
+                    for (let i = 0; i < str.length; i += 8) {
+                        arr.push(parseInt(str.slice(i, i + 8), 2));
+                    }
+                    return new Uint8Array(arr);
+                },
+                concatBuff: (buffers) => {
+                    let totalLength = 0;
+                    for (const buf of buffers) {
+                        totalLength += buf.length;
+                    }
+                    
+                    const result = new Uint8Array(totalLength);
+                    let offset = 0;
+                    for (const buf of buffers) {
+                        result.set(buf, offset);
+                        offset += buf.length;
+                    }
+                    
+                    return result;
+                }
+            };
+
+            const zwc = {
+                '0': '\u200c', // ZERO WIDTH NON-JOINER
+                '1': '\u200d', // ZERO WIDTH JOINER
+                '2': '\u2060', // WORD JOINER
+                '3': '\u2061', // FUNCTION APPLICATION
+                '4': '\u2062', // INVISIBLE TIMES
+                '5': '\u2063', // INVISIBLE SEPARATOR
+                '6': '\u2064', // INVISIBLE PLUS
+                '7': '\u180e', // MONGOLIAN VOWEL SEPARATOR
+                '8': '\u200b', // ZERO WIDTH SPACE
+                '9': '\u200a'  // HAIR SPACE
+            };
+
+            const zwcRev = {};
+            for (const [key, value] of Object.entries(zwc)) {
+                zwcRev[value] = key;
+            }
+
+            function encrypt(text, password) {
+                if (!password) return new TextEncoder().encode(text);
+                
+                const textBytes = new TextEncoder().encode(text);
+                const passwordBytes = new TextEncoder().encode(password);
+                
+                const encrypted = new Uint8Array(textBytes.length);
+                for (let i = 0; i < textBytes.length; i++) {
+                    encrypted[i] = textBytes[i] ^ passwordBytes[i % passwordBytes.length];
+                }
+                
+                return encrypted;
+            }
+            
+            function decrypt(encryptedBytes, password) {
+                if (!password) return new TextDecoder().decode(encryptedBytes);
+                
+                const passwordBytes = new TextEncoder().encode(password);
+                
+                const decrypted = new Uint8Array(encryptedBytes.length);
+                for (let i = 0; i < encryptedBytes.length; i++) {
+                    decrypted[i] = encryptedBytes[i] ^ passwordBytes[i % passwordBytes.length];
+                }
+                
+                return new TextDecoder().decode(decrypted);
+            }
+            
+            function binaryToZwc(binary) {
+                let result = '';
+                for (let i = 0; i < binary.length; i += 2) {
+                    const chunk = binary.substring(i, i + 2);
+                    result += zwc[parseInt(chunk, 2)];
+                }
+                return result;
+            }
+            
+            function zwcToBinary(text) {
+                let binary = '';
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    if (zwcRev[char] !== undefined) {
+                        const digit = parseInt(zwcRev[char]);
+                        binary += util.zeroPad(2, digit.toString(2));
+                    }
+                }
+                return binary;
+            }
+            
+            function hide(secret, cover, password = '') {
+                const encryptedData = encrypt(secret, password);
+                
+                const binaryData = util.byteToBin(encryptedData);
+                
+                const zwcData = binaryToZwc(binaryData);
+                
+                return zwcData + cover;
+            }
+            
+            function reveal(stegoText, password = '') {
+                let zwcChars = '';
+                for (let i = 0; i < stegoText.length; i++) {
+                    if (zwcRev[stegoText[i]] !== undefined) {
+                        zwcChars += stegoText[i];
+                    }
+                }
+                
+                const binary = zwcToBinary(zwcChars);
+                
+                const encryptedBytes = util.binToByte(binary);
+                
+                return decrypt(encryptedBytes, password);
+            }
+            
+            return {
+                hide,
+                reveal
+            };
+        })();
+
+        class Buffer extends Uint8Array {
+            static from(data) {
+                if (typeof data === 'string') {
+                    return new TextEncoder().encode(data);
+                }
+                return new Uint8Array(data);
+            }
+        }
+
+        const hideTab = document.getElementById('hideTab');
+        const revealTab = document.getElementById('revealTab');
+        const hideContent = document.getElementById('hideContent');
+        const revealContent = document.getElementById('revealContent');
+        const hideBtn = document.getElementById('hideBtn');
+        const revealBtn = document.getElementById('revealBtn');
+        const secretMessage = document.getElementById('secretMessage');
+        const coverText = document.getElementById('coverText');
+        const password = document.getElementById('password');
+        const hideResult = document.getElementById('hideResult');
+        const resultText = document.getElementById('resultText');
+        const copyBtn = document.getElementById('copyBtn');
+        const stegoText = document.getElementById('stegoText');
+        const revealPassword = document.getElementById('revealPassword');
+        const revealResult = document.getElementById('revealResult');
+        const hiddenMessage = document.getElementById('hiddenMessage');
+
+        hideTab.addEventListener('click', () => {
+            hideTab.classList.add('active');
+            revealTab.classList.remove('active');
+            hideContent.classList.add('active');
+            revealContent.classList.remove('active');
+        });
+
+        revealTab.addEventListener('click', () => {
+            revealTab.classList.add('active');
+            hideTab.classList.remove('active');
+            revealContent.classList.add('active');
+            hideContent.classList.remove('active');
+        });
+
+        hideBtn.addEventListener('click', () => {
+            const secret = secretMessage.value.trim();
+            const cover = coverText.value.trim();
+            const pwd = password.value;
+            
+            if (!secret) {
+                alert('Please enter a secret message');
+                return;
+            }
+            
+            if (!cover) {
+                alert('Please enter a cover text');
+                return;
+            }
+            
+            try {
+                const stego = StegCloak.hide(secret, cover, pwd);
+                resultText.value = stego;
+                hideResult.classList.remove('hidden');
+            } catch (error) {
+                alert('Error hiding the message: ' + error.message);
+            }
+        });
+
+        copyBtn.addEventListener('click', () => {
+            resultText.select();
+            document.execCommand('copy');
+            alert('Copied to clipboard!');
+        });
+
+        revealBtn.addEventListener('click', () => {
+            const stego = stegoText.value;
+            const pwd = revealPassword.value;
+            
+            if (!stego) {
+                alert('Please enter the steganographic text');
+                return;
+            }
+            
+            try {
+                const secret = StegCloak.reveal(stego, pwd);
+                hiddenMessage.value = secret;
+                revealResult.classList.remove('hidden');
+            } catch (error) {
+                alert('Error revealing the message. Make sure the password is correct.');
+            }
+        });
+
+        // Example data
+        document.addEventListener('DOMContentLoaded', () => {
+            // Add example data if wanted
+            // secretMessage.value = "Attack at Dawn!";
+            // coverText.value = "We need food supplies here";
+            // password.value = "secret key";
+        });
+    </script>
+</body>
+</html>
