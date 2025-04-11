@@ -199,12 +199,12 @@
         </div>
         
         <div class="footer">
-            <p>StegCloak uses zero-width characters to hide messages in plain text.</p>
+            <p>Our approach uses zero-width characters to hide messages in plain text.</p>
         </div>
     </div>
     
     <script>
-        const StegCloak = (function() {
+        const Steg = (function() {
             const util = {
                 toBuffer: (data) => Buffer.from(data),
                 byarr: (x) => Uint8Array.from(x),
@@ -406,7 +406,7 @@
             }
             
             try {
-                const stego = StegCloak.hide(secret, cover, pwd);
+                const stego = Steg.hide(secret, cover, pwd);
                 resultText.value = stego;
                 hideResult.classList.remove('hidden');
             } catch (error) {
@@ -430,7 +430,7 @@
             }
             
             try {
-                const secret = StegCloak.reveal(stego, pwd);
+                const secret = Steg.reveal(stego, pwd);
                 hiddenMessage.value = secret;
                 revealResult.classList.remove('hidden');
             } catch (error) {
